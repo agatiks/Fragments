@@ -3,75 +3,112 @@ package com.example.lab6_framents
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.os.PersistableBundle
+import android.util.Log
 import android.view.MenuItem
+import android.widget.Toast
+import androidx.core.view.forEach
 import androidx.fragment.app.Fragment
 import kotlinx.android.synthetic.main.activity_main.*
 import java.util.*
 import kotlin.collections.ArrayList
 
 const val KEY_CURR_FRAG = "fragment_tag"
+const val KEY_CURR_FRAG_ID = "fragment_id"
 const val KEY_QUEUE = "queue"
+
+private const val TAB_STATE_KEY: String = "MainActivity_queue"
 class MainActivity : AppCompatActivity() {
-    private var currFragmentTag: String? = null
-    private var queue: Deque<Int> = ArrayDeque()
+    private lateinit var queue: LinkedList<String>
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
-        if (savedInstanceState == null) toFragment(R.id.search)
-        else {
-            currFragmentTag = savedInstanceState.getString(KEY_CURR_FRAG)
-            queue = ArrayDeque(savedInstanceState.getIntegerArrayList(KEY_QUEUE)?:ArrayList())
+
+        supportActionBar?.apply {
+            setDisplayShowHomeEnabled(true)
+            setDisplayHomeAsUpEnabled(true)
         }
-        navigation.setOnItemSelectedListener {
-            toFragment(it.itemId)
-            true
+
+        if (savedInstanceState == null) {
+            queue = LinkedList()
+            selectTab(R.id.search)
+        } else {
+            queue = LinkedList(savedInstanceState.getStringArrayList(TAB_STATE_KEY)!!)
+            selectTab(queue.first.toInt())
         }
+
+        main_navigation?.setNavigationItemSelectedListener(::selectItem)
+        main_bottom_navigation?.setOnItemSelectedListener(::selectItem)
     }
 
-    private fun toFragment(fragmentId: Int) {
-        val fragment = supportFragmentManager.findFragmentById(fragmentId) ?: Fragment()
+    private fun selectItem(menuItem: MenuItem): Boolean {
+        selectTab(menuItem.itemId)
+        return true
+    }
+
+    private fun selectTab(tabInd: Int) {
+        selectTabFragment("$tabInd")
+        main_navigation?.menu?.forEach { it.isChecked = false }
+        val menuItem = (main_navigation?.menu ?: main_bottom_navigation?.menu)!!.findItem(tabInd)
+        menuItem.isChecked = true
+    }
+
+    private fun selectTabFragment(fragmentTag: String) {
+        val fragment = supportFragmentManager.findFragmentByTag(fragmentTag) ?: MainFragment()
         val transaction = supportFragmentManager.beginTransaction()
-        val currFragment = supportFragmentManager.findFragmentByTag(currFragmentTag)
-        if (currFragment != null) transaction.hide(currFragment)
+
+        supportFragmentManager.findFragmentByTag(queue.firstOrNull())?.let {
+            if (it.childFragmentManager.backStackEntryCount == 0) {
+                queue.removeFirst()
+                transaction.remove(it)
+            } else {
+                transaction.hide(it)
+            }
+        }
+
         if (fragment.isAdded) {
             transaction.show(fragment)
         } else {
-            transaction.add(R.id.main, fragment, "$fragmentId")
-            queue.addLast(fragmentId)
+            transaction.add(R.id.main_fragment_container, fragment, fragmentTag)
         }
-        currFragmentTag = fragment.tag
+
+        queue.apply {
+            remove(fragmentTag)
+            addFirst(fragmentTag)
+        }
         transaction.commit()
     }
 
-    override fun onSaveInstanceState(outState: Bundle, outPersistentState: PersistableBundle) {
-        super.onSaveInstanceState(outState, outPersistentState)
-        outState.putString(KEY_CURR_FRAG, currFragmentTag)
-        outState.putIntegerArrayList(KEY_QUEUE, ArrayList(queue))
-    }
-
-    override fun onOptionsItemSelected(item: MenuItem): Boolean {
-        return when (item.itemId) {
-            R.id.swipes or R.id.my_page or R.id.search -> {
-                onBackPressed()
-                true
-            }
-            else -> super.onOptionsItemSelected(item)
-        }
-    }
-
     override fun onBackPressed() {
-        val fragment = supportFragmentManager.findFragmentByTag(currFragmentTag) ?: error("Error")
-        if (fragment.childFragmentManager.backStackEntryCount != 0) {
-            fragment.childFragmentManager.popBackStack()
-        } else {
-            if (queue.isEmpty()) {
-                finish()
-            } else {
-                val last = queue.pop()
-                navigation.selectedItemId = last
-                toFragment(last)
-            }
+        if (queue.isEmpty()) finish()
+        val currentFragmentTag = queue.first
+        val fragment = supportFragmentManager.findFragmentByTag(currentFragmentTag)
+        if (fragment == null) {
+            super.onBackPressed()
+            return
         }
+        val manager = fragment.childFragmentManager
+        if (manager.backStackEntryCount == 0) {
+            if (queue.size <= 1) finish()
+            else {
+                supportFragmentManager
+                        .beginTransaction()
+                        .remove(fragment)
+                        .commit()
+                queue.removeFirst()
+                selectTab(queue.first.toInt())
+            }
+        } else {
+            manager.popBackStack()
+        }
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        outState.putStringArrayList(KEY_QUEUE, ArrayList(queue))
+    }
+    override fun onSupportNavigateUp(): Boolean {
+        onBackPressed()
+        return true
     }
 }
