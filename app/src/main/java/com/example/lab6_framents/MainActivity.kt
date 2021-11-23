@@ -12,8 +12,6 @@ import kotlinx.android.synthetic.main.activity_main.*
 import java.util.*
 import kotlin.collections.ArrayList
 
-const val KEY_CURR_FRAG = "fragment_tag"
-const val KEY_CURR_FRAG_ID = "fragment_id"
 const val KEY_QUEUE = "queue"
 
 private const val TAB_STATE_KEY: String = "MainActivity_queue"
