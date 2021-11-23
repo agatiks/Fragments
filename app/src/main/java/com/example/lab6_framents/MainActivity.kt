@@ -13,8 +13,6 @@ import java.util.*
 import kotlin.collections.ArrayList
 
 const val KEY_QUEUE = "queue"
-
-private const val TAB_STATE_KEY: String = "MainActivity_queue"
 class MainActivity : AppCompatActivity() {
     private lateinit var queue: LinkedList<String>
 
@@ -31,7 +29,7 @@ class MainActivity : AppCompatActivity() {
             queue = LinkedList()
             selectTab(R.id.search)
         } else {
-            queue = LinkedList(savedInstanceState.getStringArrayList(TAB_STATE_KEY)!!)
+            queue = LinkedList(savedInstanceState.getStringArrayList(KEY_QUEUE)!!)
             selectTab(queue.first.toInt())
         }
 
